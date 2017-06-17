@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Hackathon Chat Bot - On Cloud 9</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="css/stylish-portfolio.css" rel="stylesheet">
+
+    <!-- Custom Fonts -->
+    <link href="font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <style>
+        .speech-wrapper {
+          padding: 30px 40px;
+          background: #4c91cd;
+        }
+        .speech-wrapper .bubble {
+          width: 70%;
+          height: auto;
+          display: block;
+          background: #f5f5f5;
+          border-radius: 4px;
+          box-shadow: 2px 8px 5px #275d8b;
+          position: relative;
+          margin: 0 0 25px;
+        }
+        .speech-wrapper .bubble.alt {
+          margin: 0 0 25px 30%;
+        }
+        .speech-wrapper .bubble .txt {
+          padding: 8px 55px 8px 14px;
+        }
+        .speech-wrapper .bubble .txt .name {
+          font-weight: 600;
+          font-size: 12px;
+          margin: 0 0 4px;
+          color: #3498db;
+        }
+        .speech-wrapper .bubble .txt .name span {
+          font-weight: normal;
+          color: #b3b3b3;
+        }
+        .speech-wrapper .bubble .txt .name.alt {
+          color: #2ecc71;
+        }
+        .speech-wrapper .bubble .txt .message {
+          font-size: 12px;
+          margin: 0;
+          color: #2b2b2b;
+        }
+        .speech-wrapper .bubble .txt .timestamp {
+          font-size: 11px;
+          position: absolute;
+          bottom: 8px;
+          right: 10px;
+          text-transform: uppercase;
+          color: #999;
+        }
+        .speech-wrapper .bubble .bubble-arrow {
+          position: absolute;
+          width: 0;
+          bottom: 42px;
+          left: -16px;
+          height: 0;
+        }
+        .speech-wrapper .bubble .bubble-arrow.alt {
+          right: -2px;
+          bottom: 40px;
+          left: auto;
+        }
+        .speech-wrapper .bubble .bubble-arrow:after {
+          content: "";
+          position: absolute;
+          border: 0 solid transparent;
+          border-top: 9px solid #f5f5f5;
+          border-radius: 0 20px 0;
+          width: 15px;
+          height: 30px;
+          transform: rotate(145deg);
+        }
+        .speech-wrapper .bubble .bubble-arrow.alt:after {
+          transform: rotate(45deg) scaleY(-1);
+        }
+    </style>
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.72.0.min.js"></script>
+    <script src="js/aws-cognito-sdk.min.js"></script>
+    <script src="js/amazon-cognito-identity.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <script src="js/aws-config.js"></script>
+    <script>
+    //------------------------------------------------------------------------------------
+    // This function gets temporary credentials from the Amazon Cognito service using
+    // the AWS JavaScript SDK. These credentials can be used to call other AWS resources.
+    //------------------------------------------------------------------------------------
+    function loadIdentity() {
+        var username=document.getElementById("username").value;
+        var password=document.getElementById("password").value;
+        document.getElementById('incorrectPasswordDiv').style.display="none";
+        AWSCognito.config.region = 'us-east-1'; //This is required to derive the endpoint
+        var authenticationData = {
+            Username : username,
+            Password : password
+        };
+        var authenticationDetails = new AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails(authenticationData);
+        var poolData = { UserPoolId : 'us-east-1_85xAnq0c1',
+            ClientId : '5lhe35l498ln30iuj370s32vqb'
+        };
+        var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData);
+        var userData = {
+            Username : 'homavta',
+            Pool : userPool
+        };
+        var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData);
+        cognitoUser.authenticateUser(authenticationDetails, {
+            onSuccess: function (result) {
+                console.log('access token + ' + result.getAccessToken().getJwtToken());
+                /*Use the idToken for Logins Map when Federating User Pools with Cognito Identity or when passing through an Authorization Header to an API Gateway Authorizer*/
+                console.log('idToken + ' + result.idToken.jwtToken);
+                document.getElementById('signInButton').style.display="none";
+                document.getElementById('about').style.display="block";
+
+                $('#loginModal').modal('hide');
+
+                var a = document.createElement('a');
+                a.href="#about";
+                a.click();
+                // window.location.replace("/chat.html?token="+result.idToken.jwtToken);
+            },
+
+            onFailure: function(err) {
+                document.getElementById('incorrectPasswordDiv').style.display="block";
+            },
+            newPasswordRequired: function(userAttributes, requiredAttributes) {
+                console.log(userAttributes);
+                console.log(requiredAttributes);
+                cognitoUser.completeNewPasswordChallenge('Hackathon1', null, this)
+            }
+        });
+    }
+    function getResponse(){
+        var content=document.getElementById('sendMessage').value;
+        document.getElementById('sendMessage').value="";
+        document.getElementById('chatArea').style.background="#4c91cd";
+        document.getElementById('chatArea').appendChild(getMyResponse(content));
+        var lexruntime = new AWS.LexRuntime();
+        var params = {
+            botAlias: 'HackathonJenkins', /* required */
+            botName: 'HackathonJenkinsRun', /* required */
+            inputText: content, /* required */
+            userId: 'homavta'/* required */
+        };
+        lexruntime.postText(params, function(err, data) {
+            if (err) console.log(err, err.stack); // an error occurred
+            else {
+                console.log(data);           // successful response
+                document.getElementById('chatArea').appendChild(getBotResponse(data.message));
+                synthesizeSpeech(data.message);
+                document.getElementById('sendMessage').focus();
+            }
+        });
+    }
+    function getMyResponse(content){
+        var divOuter=document.createElement('div');
+        divOuter.className="bubble";
+        var divInner=document.createElement('div');
+        divInner.className="txt";
+        var p1=document.createElement('p');
+        p1.className="name";
+        p1.innerHTML="You";
+        var p2=document.createElement('p');
+        p2.className="message";
+        p2.innerHTML=content;
+        var span=document.createElement('span');
+        span.className="timestamp";
+        span.innerHTML=formatAMPM(new Date());
+        divInner.appendChild(p1);
+        divInner.appendChild(p2);
+        divInner.appendChild(span);
+        divOuter.appendChild(divInner);
+        return divOuter;
+    }
+
+    function getBotResponse(content){
+        var divOuter=document.createElement('div');
+        divOuter.className="bubble alt";
+        var divInner=document.createElement('div');
+        divInner.className="txt";
+        var p1=document.createElement('p');
+        p1.className="name alt";
+        p1.innerHTML="Hackathon Bot";
+        var p2=document.createElement('p');
+        p2.className="message";
+        p2.innerHTML=content;
+        var span=document.createElement('span');
+        span.className="timestamp";
+        span.innerHTML=formatAMPM(new Date());
+        divInner.appendChild(p1);
+        divInner.appendChild(p2);
+        divInner.appendChild(span);
+        divOuter.appendChild(divInner);
+        return divOuter;
+    }
+
+    function formatAMPM(date) {
+      var hours = date.getHours();
+      var minutes = date.getMinutes();
+      var ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      minutes = minutes < 10 ? '0'+minutes : minutes;
+      var strTime = hours + ':' + minutes + ' ' + ampm;
+      return strTime;
+    }
+    function synthesizeSpeech(message){
+      var params = {
+        LexiconNames: [
+        ], 
+        OutputFormat: "mp3", 
+        SampleRate: "8000", 
+        Text: message, 
+        TextType: "text", 
+        VoiceId: "Joanna"
+      };
+      var polly = new AWS.Polly();
+      polly.synthesizeSpeech(params, function(err, data) {
+             if (err) console.log(err, err.stack); // an error occurred
+             else  {
+              console.log(data);  
+              var uInt8Array = new Uint8Array(data.AudioStream);
+              var arrayBuffer = uInt8Array.buffer;
+              var blob = new Blob([arrayBuffer]);
+              var url = URL.createObjectURL(blob);
+
+              audioElement = document.getElementById('audioElementTest');
+              audioElement.src = url;
+              audioElement.play();     
+            }
+          });
+    }
+    function send(event){
+        var keynum;
+        if(window.event){
+            keynum=event.keyCode;
+        }
+        else{
+            keynum=event.which;
+        }
+        if(keynum==13){
+            getResponse();
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header id="top" class="header">
+        <div class="text-vertical-center">
+            <h1>Hackathon Chat Bot</h1>
+            <h3>The chatbot for all your operational needs</h3>
+            <br>
+            <a href="#about" class="btn btn-dark btn-lg" data-toggle="modal" id="signInButton" data-target="#loginModal">Sign In</a>
+        </div>
+    </header>
+
+    <!-- Modal -->
+    <div id="loginModal" class="modal fade" role="dialog">
+      <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="col-lg-2"></div>
+        <div class="modal-content col-lg-8">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Sign In</h4>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="usr">Username:</label>
+              <input type="text" class="form-control" id="username">
+            </div>
+            <div class="form-group">
+              <label for="pwd">Password:</label>
+              <input type="password" class="form-control" id="password">
+            </div>
+            <div class="alert alert-danger" id="incorrectPasswordDiv" style="display: none;">
+              <strong>Oops!</strong> Incorrect username or password.
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" onclick="javascript:loadIdentity()">Log In</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- About -->
+    <section id="about" class="about bg-primary" style="display:none;">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <h2 class="text-center">The bot is now ready!</h2>
+                    <br/>
+                    <div class="form-group">
+                      <div class="row">
+                        <div class="col-lg-2"></div>
+                        <div class="col-lg-8">
+                            <div class="speech-wrapper" id="chatArea" style="background-color: #337ab7"></div>
+                        </div>
+                      </div>
+                      <br/>
+                      <div class="row">
+                          <div class="col-lg-2"></div>
+                          <div class="col-lg-7">
+                            <input type="text" class="form-control" id="sendMessage" onkeydown="javascript:send(event)">
+                          </div>
+                          <div class="col-lg-1">
+                            <button type="button" class="btn btn-info" onclick="javascript:getResponse(event)" style="border: 0px; background-color: #11283c;">Send</button>
+                          </div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /.row -->
+        </div>
+        <!-- /.container -->
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="row border-bottom">
+                <div class="col-lg-10 col-lg-offset-1 text-center">
+                    <h4><strong>On Cloud 9</strong></h4>
+                    <p>Verizon Data Services India, Chennai</p>
+                    <br>
+                    <hr/>
+                </div>
+            </div>
+            <div class="row" align="center">
+                <div class="col-md-4 col-sm-6">
+                    <div class="service-item">
+                        <span class="fa-stack fa-4x">
+                            <i class="fa fa-circle fa-stack-2x"></i>
+                        </span>
+                        <h4>
+                            <strong>Tawaana Homavazir</strong>
+                        </h4>
+                        <p><i>Analyst, SSP Workflow</i></p>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="service-item">
+                        <span class="fa-stack fa-4x">
+                        <i class="fa fa-circle fa-stack-2x"></i>
+                    </span>
+                        <h4>
+                            <strong>Lakshmipriya Madhanagopal</strong>
+                        </h4>
+                        <p><i>Consultant, SSP Workflow</i></p>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="service-item">
+                        <span class="fa-stack fa-4x">
+                        <i class="fa fa-circle fa-stack-2x"></i>
+                    </span>
+                        <h4>
+                            <strong>Suresh Siddharth</strong>
+                        </h4>
+                        <p><i>Analyst, SSP Workflow</i></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <a id="to-top" href="#top" class="btn btn-dark btn-lg"><i class="fa fa-chevron-up fa-fw fa-1x"></i></a>
+    </footer>
+    <audio controls id="audioElementTest" style="display: none;">
+        <source type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+
+    <!-- Custom Theme JavaScript -->
+    <script>
+    //#to-top button appears after scrolling
+    var fixed = false;
+    $(document).scroll(function() {
+        if ($(this).scrollTop() > 250) {
+            if (!fixed) {
+                fixed = true;
+                // $('#to-top').css({position:'fixed', display:'block'});
+                $('#to-top').show("slow", function() {
+                    $('#to-top').css({
+                        position: 'fixed',
+                        display: 'block'
+                    });
+                });
+            }
+        } else {
+            if (fixed) {
+                fixed = false;
+                $('#to-top').hide("slow", function() {
+                    $('#to-top').css({
+                        display: 'none'
+                    });
+                });
+            }
+        }
+    });
+
+    </script>
+
+</body>
+
+</html>
