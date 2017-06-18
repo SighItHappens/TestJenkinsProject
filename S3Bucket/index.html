@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -108,6 +107,7 @@
     // This function gets temporary credentials from the Amazon Cognito service using
     // the AWS JavaScript SDK. These credentials can be used to call other AWS resources.
     //------------------------------------------------------------------------------------
+  var globalUser='';
     function loadIdentity() {
         var username=document.getElementById("username").value;
         var password=document.getElementById("password").value;
@@ -123,7 +123,7 @@
         };
         var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData);
         var userData = {
-            Username : 'homavta',
+            Username : username,
             Pool : userPool
         };
         var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData);
@@ -134,7 +134,7 @@
                 console.log('idToken + ' + result.idToken.jwtToken);
                 document.getElementById('signInButton').style.display="none";
                 document.getElementById('about').style.display="block";
-
+        globalUser=username;
                 $('#loginModal').modal('hide');
 
                 var a = document.createElement('a');
@@ -162,10 +162,12 @@
         var params = {
             botAlias: 'HackathonJenkins', /* required */
             botName: 'HackathonJenkinsRun', /* required */
-            inputText: content, /* required */
-            userId: 'homavta'/* required */
+      contentType: 'text/plain; charset=utf-8',
+      inputStream: content,
+      accept: 'text/plain; charset=utf-8',/* required */
+            userId: globalUser/* required */
         };
-        lexruntime.postText(params, function(err, data) {
+        lexruntime.postContent(params, function(err, data) {
             if (err) console.log(err, err.stack); // an error occurred
             else {
                 console.log(data);           // successful response
@@ -206,6 +208,9 @@
         p1.innerHTML="Hackathon Bot";
         var p2=document.createElement('p');
         p2.className="message";
+    console.log("Before replace: "+content);
+    content=content.replace(new RegExp('\n', 'g'), '</br>');
+    console.log("After replace: "+content);
         p2.innerHTML=content;
         var span=document.createElement('span');
         span.className="timestamp";
@@ -272,7 +277,7 @@
 
     <!-- Header -->
     <header id="top" class="header">
-        <div class="text-vertical-center">
+        <div class="text-vertical-center" style="color: white;">
             <h1>Hackathon Chat Bot</h1>
             <h3>The chatbot for all your operational needs</h3>
             <br>
@@ -360,7 +365,7 @@
                 <div class="col-md-4 col-sm-6">
                     <div class="service-item">
                         <span class="fa-stack fa-4x">
-                            <i class="fa fa-circle fa-stack-2x"></i>
+                            <img src="img/IMG-20170618-WA0025.jpg" width="100px" height="100px"></img>
                         </span>
                         <h4>
                             <strong>Tawaana Homavazir</strong>
@@ -371,7 +376,7 @@
                 <div class="col-md-4 col-sm-6">
                     <div class="service-item">
                         <span class="fa-stack fa-4x">
-                        <i class="fa fa-circle fa-stack-2x"></i>
+                        <img src="img/IMG-20170618-WA0024.jpg" width="100px" height="100px"></img>
                     </span>
                         <h4>
                             <strong>Lakshmipriya Madhanagopal</strong>
@@ -382,7 +387,7 @@
                 <div class="col-md-4 col-sm-6">
                     <div class="service-item">
                         <span class="fa-stack fa-4x">
-                        <i class="fa fa-circle fa-stack-2x"></i>
+                        <img src="img/IMG-20160929-WA0002.jpg" width="100px" height="100px"></img>
                     </span>
                         <h4>
                             <strong>Suresh Siddharth</strong>
@@ -430,9 +435,6 @@
             }
         }
     });
-
     </script>
-
 </body>
-
 </html>

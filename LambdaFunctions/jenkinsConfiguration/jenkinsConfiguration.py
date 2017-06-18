@@ -42,7 +42,8 @@ def jenkins_config(event, context):
             jobs.append(i['job_name'])
             
     print(jobs)
-    responseString = "The jobs configured are: "
+    responseString = "The flows configured on JIRA are: Get JIRA items for an assignee. "
+    responseString += "The jobs configured on Jenkins are: "
     for i in jobs:
         responseString += i+", "
     responseString = responseString[:-2]   
